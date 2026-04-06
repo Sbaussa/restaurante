@@ -7,10 +7,9 @@ const bcrypt = require("bcryptjs");
 const prisma = new PrismaClient();
 
 router.post("/register", register);
-router.post("/login", login);
-router.get("/me", authMiddleware, me);
+router.post("/login",    login);
+router.get("/me",        authMiddleware, me);
 
-// GET /api/auth/users — solo ADMIN
 router.get("/users", authMiddleware, requireRole("ADMIN"), async (req, res) => {
   const users = await prisma.user.findMany({
     select: { id: true, name: true, email: true, role: true, createdAt: true },
@@ -19,7 +18,6 @@ router.get("/users", authMiddleware, requireRole("ADMIN"), async (req, res) => {
   res.json(users);
 });
 
-// POST /api/auth/users — solo ADMIN
 router.post("/users", authMiddleware, requireRole("ADMIN"), async (req, res) => {
   const { name, email, password, role } = req.body;
   if (!name || !email || !password || !role)
@@ -28,7 +26,7 @@ router.post("/users", authMiddleware, requireRole("ADMIN"), async (req, res) => 
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) return res.status(400).json({ message: "El email ya está registrado" });
     const hashed = await bcrypt.hash(password, 10);
-    const user = await prisma.user.create({
+    const user   = await prisma.user.create({
       data: { name, email, password: hashed, role },
       select: { id: true, name: true, email: true, role: true, createdAt: true },
     });
@@ -38,7 +36,6 @@ router.post("/users", authMiddleware, requireRole("ADMIN"), async (req, res) => 
   }
 });
 
-// PUT /api/auth/users/:id — solo ADMIN
 router.put("/users/:id", authMiddleware, requireRole("ADMIN"), async (req, res) => {
   const { name, email, role, password } = req.body;
   try {
@@ -55,7 +52,6 @@ router.put("/users/:id", authMiddleware, requireRole("ADMIN"), async (req, res) 
   }
 });
 
-// DELETE /api/auth/users/:id — solo ADMIN
 router.delete("/users/:id", authMiddleware, requireRole("ADMIN"), async (req, res) => {
   try {
     if (Number(req.params.id) === req.user.id)

@@ -4,9 +4,7 @@ const { authMiddleware } = require("../middlewares/auth.middleware");
 
 const prisma = new PrismaClient();
 
-// GET /api/tables — estado de todas las mesas
 router.get("/", authMiddleware, async (req, res) => {
-  // Pedidos activos con mesa asignada
   const activeOrders = await prisma.order.findMany({
     where: {
       tableNumber: { not: null },
@@ -19,7 +17,6 @@ router.get("/", authMiddleware, async (req, res) => {
     orderBy: { createdAt: "desc" },
   });
 
-  // Número de mesas configuradas
   const totalTables = Number(process.env.TOTAL_TABLES) || 12;
 
   const tables = Array.from({ length: totalTables }, (_, i) => {

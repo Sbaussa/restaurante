@@ -1,7 +1,7 @@
 require("dotenv").config();
 const express = require("express");
-const cors = require("cors");
-const http = require("http");
+const cors    = require("cors");
+const http    = require("http");
 const { Server } = require("socket.io");
 
 const authRoutes      = require("./src/routes/auth.routes");
@@ -28,7 +28,6 @@ const io = new Server(server, {
   },
 });
 
-// Adjunta io a req para usarlo en controllers
 app.use((req, res, next) => {
   req.io = io;
   next();

@@ -35,7 +35,7 @@ const getById = async (req, res) => {
 };
 
 const create = async (req, res) => {
-  const { tableNumber, items } = req.body;
+  const { tableNumber, items, notes } = req.body;
   try {
     const productIds = items.map((i) => i.productId);
     const products   = await prisma.product.findMany({ where: { id: { in: productIds } } });
@@ -54,15 +54,14 @@ const create = async (req, res) => {
       data: {
         total,
         tableNumber: tableNumber || null,
-        userId: req.user.id,
+        notes:       notes || null,
+        userId:      req.user.id,
         items: { create: orderItems },
       },
       include: { items: { include: { product: true } } },
     });
 
-    // Notifica nuevo pedido
     req.io.emit("order:new", order);
-
     res.status(201).json(order);
   } catch (err) {
     res.status(400).json({ message: "Error al crear pedido", error: err.message });
@@ -80,10 +79,7 @@ const updateStatus = async (req, res) => {
         user:  { select: { id: true, name: true } },
       },
     });
-
-    // Notifica cambio de estado
     req.io.emit("order:updated", order);
-
     res.json(order);
   } catch (err) {
     res.status(400).json({ message: "Error al actualizar estado", error: err.message });
