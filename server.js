@@ -13,7 +13,12 @@ const app = express();
 const PORT = process.env.PORT || 3002;
 
 // ─── Middlewares globales ────────────────────────────────────────────────────
-app.use(cors({ origin: process.env.FRONTEND_URL || "http://localhost:5173" }));
+app.use(cors({
+  origin: [
+    process.env.FRONTEND_URL || "http://localhost:5173",
+    "https://restaurante-frontend-xi.vercel.app"
+  ]
+}));
 app.use(express.json());
 
 // ─── Rutas ───────────────────────────────────────────────────────────────────

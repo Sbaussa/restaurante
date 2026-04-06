@@ -167,7 +167,7 @@ router.post("/", authMiddleware, (req, res) => {
   add(CMD.ALIGN_CENTER);
   add(CMD.LF);
   add(text("Gracias por su visita!"));
-  add(text("Vuelva pronto :)"));
+  add(text("¡Vuelva pronto!"));
   add(CMD.LF);
   add(text("Baus S.A.S - 2026"));
   add(CMD.LF);
