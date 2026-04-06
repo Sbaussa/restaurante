@@ -1,0 +1,10 @@
+const router = require("express").Router();
+const { getAll, getById, create, updateStatus } = require("../controllers/order.controller");
+const { authMiddleware } = require("../middlewares/auth.middleware");
+
+router.get("/", authMiddleware, getAll);
+router.get("/:id", authMiddleware, getById);
+router.post("/", authMiddleware, create);
+router.patch("/:id/status", authMiddleware, updateStatus);
+
+module.exports = router;
