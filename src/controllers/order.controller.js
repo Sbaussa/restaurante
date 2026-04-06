@@ -37,19 +37,14 @@ const getById = async (req, res) => {
   res.json(order);
 };
 
-// POST /api/orders  — crea un pedido con sus items
+// POST /api/orders
 const create = async (req, res) => {
   const { tableNumber, items } = req.body;
-  // items: [{ productId, quantity }]
-
   try {
-    // 1. Obtener precios actuales de productos
     const productIds = items.map((i) => i.productId);
     const products = await prisma.product.findMany({ where: { id: { in: productIds } } });
-
     const productMap = Object.fromEntries(products.map((p) => [p.id, p]));
 
-    // 2. Calcular total
     let total = 0;
     const orderItems = items.map(({ productId, quantity }) => {
       const product = productMap[productId];
@@ -59,7 +54,6 @@ const create = async (req, res) => {
       return { productId, quantity, unitPrice };
     });
 
-    // 3. Crear pedido + items en una transacción
     const order = await prisma.order.create({
       data: {
         total,
@@ -76,7 +70,7 @@ const create = async (req, res) => {
   }
 };
 
-// PATCH /api/orders/:id/status  — actualiza el estado
+// PATCH /api/orders/:id/status
 const updateStatus = async (req, res) => {
   const { status } = req.body;
   try {
@@ -89,8 +83,6 @@ const updateStatus = async (req, res) => {
     res.status(400).json({ message: "Error al actualizar estado", error: err.message });
   }
 };
-
-module.exports = { getAll, getById, create, updateStatus };
 
 // PATCH /api/orders/:id/payment
 const updatePayment = async (req, res) => {
