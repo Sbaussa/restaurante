@@ -7,7 +7,6 @@ const { exec } = require("child_process");
 
 const PRINTER_NAME = "EPSON TM-T88V Receipt";
 
-// ── Helpers ESC/POS ───────────────────────────────────────
 const ESC = 0x1b;
 const GS  = 0x1d;
 
@@ -74,7 +73,7 @@ router.post("/", authMiddleware, (req, res) => {
   add(text(`Atendio  : ${order.user?.name || "-"}`));
   add(line());
 
-  // ── Tabla ──
+  // ── Tabla items ──
   add(CMD.BOLD_ON);
   add(row("Descripcion", "P.Unit", "Total"));
   add(CMD.BOLD_OFF);
@@ -95,14 +94,6 @@ router.post("/", authMiddleware, (req, res) => {
 
   add(line());
 
-  // ── Total ──
-  add(CMD.BOLD_ON);
-  add(CMD.DOUBLE_ON);
-  add(row("TOTAL", "", `$${order.total.toLocaleString("es-CO")}`, [21, 10, 11]));
-  add(CMD.DOUBLE_OFF);
-  add(CMD.BOLD_OFF);
-  add(line());
-
   // ── Pago ──
   if (order.payment) {
     const METHOD_LABELS = {
@@ -119,6 +110,7 @@ router.post("/", authMiddleware, (req, res) => {
     }
     add(line());
   }
+
   // ── Total ──
   add(CMD.BOLD_ON);
   add(CMD.DOUBLE_ON);
@@ -126,6 +118,7 @@ router.post("/", authMiddleware, (req, res) => {
   add(CMD.DOUBLE_OFF);
   add(CMD.BOLD_OFF);
   add(line());
+
   // ── Pie ──
   add(CMD.ALIGN_CENTER);
   add(CMD.LF);
