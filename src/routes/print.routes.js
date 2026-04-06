@@ -119,7 +119,13 @@ router.post("/", authMiddleware, (req, res) => {
     }
     add(line());
   }
-
+  // ── Total ──
+  add(CMD.BOLD_ON);
+  add(CMD.DOUBLE_ON);
+  add(row("TOTAL", "", `$${order.total.toLocaleString("es-CO")}`, [21, 10, 11]));
+  add(CMD.DOUBLE_OFF);
+  add(CMD.BOLD_OFF);
+  add(line());
   // ── Pie ──
   add(CMD.ALIGN_CENTER);
   add(CMD.LF);
