@@ -45,11 +45,97 @@ function row(col1, col2, col3, widths = [21, 10, 11]) {
   return text(pad(col1, widths[0]) + pad(col2, widths[1], true) + pad(col3, widths[2], true));
 }
 
-// ── Script PowerShell que usa winspool directo ────────────
-function buildPsScript(tmpFile, printerName) {
-  return `
-$printerName = "${printerName}"
-$filePath    = "${tmpFile.replace(/\\/g, "\\\\")}"
+router.post("/", authMiddleware, (req, res) => {
+  const { order } = req.body;
+
+  const fecha = new Date(order.createdAt).toLocaleString("es-CO", {
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit",
+  });
+
+  const chunks = [];
+  const add = (...buffers) => buffers.forEach((b) => chunks.push(b));
+
+  // ── Encabezado ──
+  add(CMD.INIT);
+  add(CMD.ALIGN_CENTER);
+  add(CMD.DOUBLE_ON);
+  add(text("El Nuevo Baraton"));
+  add(CMD.DOUBLE_OFF);
+  add(text("Calle 70 - Barranquilla"));
+  add(text("NIT: 000.000.000-0"));
+  add(line());
+
+  // ── Info pedido ──
+  add(CMD.ALIGN_LEFT);
+  add(text(`Pedido # : ${order.id}`));
+  add(text(`Fecha    : ${fecha}`));
+  add(text(`Mesa     : ${order.tableNumber ? `Mesa ${order.tableNumber}` : "Para llevar"}`));
+  add(text(`Atendio  : ${order.user?.name || "-"}`));
+  add(line());
+
+  // ── Tabla ──
+  add(CMD.BOLD_ON);
+  add(row("Descripcion", "P.Unit", "Total"));
+  add(CMD.BOLD_OFF);
+  add(line());
+
+  order.items.forEach((item) => {
+    const nombre   = `${item.quantity}x ${item.product.name}`;
+    const precio   = `$${item.unitPrice.toLocaleString("es-CO")}`;
+    const subtotal = `$${(item.unitPrice * item.quantity).toLocaleString("es-CO")}`;
+
+    if (nombre.length > 20) {
+      add(text(nombre));
+      add(row("", precio, subtotal));
+    } else {
+      add(row(nombre, precio, subtotal));
+    }
+  });
+
+  add(line());
+
+  // ── Total ──
+  add(CMD.BOLD_ON);
+  add(CMD.DOUBLE_ON);
+  add(row("TOTAL", "", `$${order.total.toLocaleString("es-CO")}`, [21, 10, 11]));
+  add(CMD.DOUBLE_OFF);
+  add(CMD.BOLD_OFF);
+  add(line());
+
+  // ── Pago ──
+  if (order.payment) {
+    const METHOD_LABELS = {
+      EFECTIVO:      "Efectivo",
+      TRANSFERENCIA: "Transferencia",
+      TARJETA:       "Tarjeta",
+    };
+    add(CMD.ALIGN_LEFT);
+    add(text(`Pago con  : ${METHOD_LABELS[order.payment.method] || order.payment.method}`));
+
+    if (order.payment.method === "EFECTIVO") {
+      add(text(`Recibido  : $${order.payment.cashGiven.toLocaleString("es-CO")}`));
+      add(text(`Cambio    : $${order.payment.change.toLocaleString("es-CO")}`));
+    }
+    add(line());
+  }
+
+  // ── Pie ──
+  add(CMD.ALIGN_CENTER);
+  add(CMD.LF);
+  add(text("Gracias por su visita!"));
+  add(text("Vuelva pronto :)"));
+  add(CMD.LF);
+  add(CMD.LF);
+  add(CMD.CUT);
+
+  const receipt  = Buffer.concat(chunks);
+  const tmpBin   = path.join(os.tmpdir(), `receipt_${Date.now()}.bin`);
+  const tmpPs    = path.join(os.tmpdir(), `print_${Date.now()}.ps1`);
+
+  const psScript = `
+$printerName = "${PRINTER_NAME}"
+$filePath    = "${tmpBin.replace(/\\/g, "\\\\")}"
 $bytes       = [System.IO.File]::ReadAllBytes($filePath)
 
 $src = @"
@@ -103,85 +189,10 @@ $written = 0
 
 Write-Output "OK:$written"
 `;
-}
-
-router.post("/", authMiddleware, (req, res) => {
-  const { order } = req.body;
-
-  const fecha = new Date(order.createdAt).toLocaleString("es-CO", {
-    year: "numeric", month: "2-digit", day: "2-digit",
-    hour: "2-digit", minute: "2-digit",
-  });
-
-  const chunks = [];
-  const add = (...buffers) => buffers.forEach((b) => chunks.push(b));
-
-  // ── Encabezado ──
-  add(CMD.INIT);
-  add(CMD.ALIGN_CENTER);
-  add(CMD.DOUBLE_ON);
-  add(text("El Nuevo Baraton"));
-  add(CMD.DOUBLE_OFF);
-  add(text("Calle 70 #61-Esq - Barranquilla"));
-  add(text("NIT: 123456789-0"));
-  add(line());
-
-  // ── Info pedido ──
-  add(CMD.ALIGN_LEFT);
-  add(text(`Pedido # : ${order.id}`));
-  add(text(`Fecha    : ${fecha}`));
-  add(text(`Mesa     : ${order.tableNumber ? `Mesa ${order.tableNumber}` : "Para llevar"}`));
-  add(text(`Atendio  : ${order.user?.name || "-"}`));
-  add(line());
-
-  // ── Tabla ──
-  add(CMD.BOLD_ON);
-  add(row("Descripcion", "P.Unit", "Total"));
-  add(CMD.BOLD_OFF);
-  add(line());
-
-  order.items.forEach((item) => {
-    const nombre   = `${item.quantity}x ${item.product.name}`;
-    const precio   = `$${item.unitPrice.toLocaleString("es-CO")}`;
-    const subtotal = `$${(item.unitPrice * item.quantity).toLocaleString("es-CO")}`;
-
-    if (nombre.length > 20) {
-      add(text(nombre));
-      add(row("", precio, subtotal));
-    } else {
-      add(row(nombre, precio, subtotal));
-    }
-  });
-
-  add(line());
-
-  // ── Total ──
-  add(CMD.BOLD_ON);
-  add(CMD.DOUBLE_ON);
-  add(row("TOTAL", "", `$${order.total.toLocaleString("es-CO")}`, [21, 10, 11]));
-  add(CMD.DOUBLE_OFF);
-  add(CMD.BOLD_OFF);
-  add(line());
-
-  // ── Pie ──
-  add(CMD.ALIGN_CENTER);
-  add(CMD.LF);
-  add(text("Gracias por su visita!"));
-  add(text("¡Vuelva pronto!"));
-  add(CMD.LF);
-  add(text("Baus S.A.S - 2026"));
-  add(CMD.LF);
-  add(CMD.LF);
-  add(CMD.CUT);
-
-  const receipt  = Buffer.concat(chunks);
-  const tmpBin   = path.join(os.tmpdir(), `receipt_${Date.now()}.bin`);
-  const tmpPs    = path.join(os.tmpdir(), `print_${Date.now()}.ps1`);
-  const psScript = buildPsScript(tmpBin, PRINTER_NAME);
 
   fs.writeFile(tmpBin, receipt, (errBin) => {
     if (errBin) {
-      console.error("Error bin:", errBin.message);
+      console.error("Error al escribir archivo temporal:", errBin.message);
       return res.status(500).json({ message: "Error al preparar la impresion." });
     }
 
