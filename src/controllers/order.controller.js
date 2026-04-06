@@ -91,3 +91,23 @@ const updateStatus = async (req, res) => {
 };
 
 module.exports = { getAll, getById, create, updateStatus };
+
+// PATCH /api/orders/:id/payment
+const updatePayment = async (req, res) => {
+  const { paymentMethod, cashGiven, cashChange } = req.body;
+  try {
+    const order = await prisma.order.update({
+      where: { id: Number(req.params.id) },
+      data: { paymentMethod, cashGiven, cashChange },
+      include: {
+        items: { include: { product: true } },
+        user: { select: { id: true, name: true } },
+      },
+    });
+    res.json(order);
+  } catch (err) {
+    res.status(400).json({ message: "Error al guardar pago", error: err.message });
+  }
+};
+
+module.exports = { getAll, getById, create, updateStatus, updatePayment };

@@ -28,7 +28,7 @@ enum Role {
 // ─── Categorías de productos ─────────────────────────────────────────────────
 model Category {
   id       Int       @id @default(autoincrement())
-  name     String    @unique   // "Hamburguesas", "Cervezas", "Bebidas", etc.
+  name     String    @unique
   products Product[]
 }
 
@@ -48,23 +48,26 @@ model Product {
 
 // ─── Pedidos ──────────────────────────────────────────────────────────────────
 model Order {
-  id         Int         @id @default(autoincrement())
-  total      Float
-  status     OrderStatus @default(PENDING)
-  tableNumber Int?       // null = para llevar
-  userId     Int
-  user       User        @relation(fields: [userId], references: [id])
-  items      OrderItem[]
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
+  id            Int         @id @default(autoincrement())
+  total         Float
+  status        OrderStatus @default(PENDING)
+  tableNumber   Int?
+  paymentMethod String?
+  cashGiven     Float?
+  cashChange    Float?
+  userId        Int
+  user          User        @relation(fields: [userId], references: [id])
+  items         OrderItem[]
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
 }
 
 enum OrderStatus {
-  PENDING     // En espera
-  PREPARING   // En cocina
-  READY       // Listo para entregar
-  DELIVERED   // Entregado
-  CANCELLED   // Cancelado
+  PENDING
+  PREPARING
+  READY
+  DELIVERED
+  CANCELLED
 }
 
 // ─── Items de un pedido ───────────────────────────────────────────────────────
