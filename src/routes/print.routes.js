@@ -47,9 +47,10 @@ function row(col1, col2, col3, widths = [21, 10, 11]) {
 router.post("/", authMiddleware, (req, res) => {
   const { order } = req.body;
 
-  const fecha = new Date(order.createdAt).toLocaleString("es-CO", {
+  const fecha = new Date(order.createdAt).toLocaleString("en-US", {
     year: "numeric", month: "2-digit", day: "2-digit",
     hour: "2-digit", minute: "2-digit",
+    hour12: true,
   });
 
   const chunks = [];
@@ -61,8 +62,8 @@ router.post("/", authMiddleware, (req, res) => {
   add(CMD.DOUBLE_ON);
   add(text("El Nuevo Baraton"));
   add(CMD.DOUBLE_OFF);
-  add(text("Calle 70 - Barranquilla"));
-  add(text("NIT: 000.000.000-0"));
+  add(text("Calle 70 #61 - Barranquilla"));
+  add(text("NIT: 123456789-0"));
   add(line());
 
   // ── Info pedido ──
@@ -123,7 +124,9 @@ router.post("/", authMiddleware, (req, res) => {
   add(CMD.ALIGN_CENTER);
   add(CMD.LF);
   add(text("Gracias por su visita!"));
-  add(text("Vuelva pronto :)"));
+  add(text("¡Vuelva pronto!"));
+  add(CMD.LF);
+  add(text("Baus S.A.S - 2026"));
   add(CMD.LF);
   add(CMD.LF);
   add(CMD.CUT);
