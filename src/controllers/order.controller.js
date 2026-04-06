@@ -1,48 +1,44 @@
 const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 
-// GET /api/orders
 const getAll = async (req, res) => {
   const { status, date } = req.query;
   const where = {};
   if (status) where.status = status;
   if (date) {
     const start = new Date(date);
-    const end = new Date(date);
+    const end   = new Date(date);
     end.setDate(end.getDate() + 1);
     where.createdAt = { gte: start, lt: end };
   }
-
   const orders = await prisma.order.findMany({
     where,
     include: {
       items: { include: { product: true } },
-      user: { select: { id: true, name: true } },
+      user:  { select: { id: true, name: true } },
     },
     orderBy: { createdAt: "desc" },
   });
   res.json(orders);
 };
 
-// GET /api/orders/:id
 const getById = async (req, res) => {
   const order = await prisma.order.findUnique({
     where: { id: Number(req.params.id) },
     include: {
       items: { include: { product: { include: { category: true } } } },
-      user: { select: { id: true, name: true } },
+      user:  { select: { id: true, name: true } },
     },
   });
   if (!order) return res.status(404).json({ message: "Pedido no encontrado" });
   res.json(order);
 };
 
-// POST /api/orders
 const create = async (req, res) => {
   const { tableNumber, items } = req.body;
   try {
     const productIds = items.map((i) => i.productId);
-    const products = await prisma.product.findMany({ where: { id: { in: productIds } } });
+    const products   = await prisma.product.findMany({ where: { id: { in: productIds } } });
     const productMap = Object.fromEntries(products.map((p) => [p.id, p]));
 
     let total = 0;
@@ -64,36 +60,45 @@ const create = async (req, res) => {
       include: { items: { include: { product: true } } },
     });
 
+    // Notifica nuevo pedido
+    req.io.emit("order:new", order);
+
     res.status(201).json(order);
   } catch (err) {
     res.status(400).json({ message: "Error al crear pedido", error: err.message });
   }
 };
 
-// PATCH /api/orders/:id/status
 const updateStatus = async (req, res) => {
   const { status } = req.body;
   try {
     const order = await prisma.order.update({
       where: { id: Number(req.params.id) },
-      data: { status },
+      data:  { status },
+      include: {
+        items: { include: { product: true } },
+        user:  { select: { id: true, name: true } },
+      },
     });
+
+    // Notifica cambio de estado
+    req.io.emit("order:updated", order);
+
     res.json(order);
   } catch (err) {
     res.status(400).json({ message: "Error al actualizar estado", error: err.message });
   }
 };
 
-// PATCH /api/orders/:id/payment
 const updatePayment = async (req, res) => {
   const { paymentMethod, cashGiven, cashChange } = req.body;
   try {
     const order = await prisma.order.update({
       where: { id: Number(req.params.id) },
-      data: { paymentMethod, cashGiven, cashChange },
+      data:  { paymentMethod, cashGiven, cashChange },
       include: {
         items: { include: { product: true } },
-        user: { select: { id: true, name: true } },
+        user:  { select: { id: true, name: true } },
       },
     });
     res.json(order);
