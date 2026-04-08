@@ -63,7 +63,8 @@ router.post("/", authMiddleware, (req, res) => {
   add(text("El Nuevo Baraton"));
   add(CMD.DOUBLE_OFF);
   add(text("Calle 70 #61 - Barranquilla"));
-  add(text("NIT: 123456789-0"));
+  add(text("CC: 22746376"));
+  add(text("Tel: 311 2397748"));
   add(line());
 
   // ── Info pedido ──
@@ -71,7 +72,8 @@ router.post("/", authMiddleware, (req, res) => {
   add(text(`Pedido # : ${order.id}`));
   add(text(`Fecha    : ${fecha}`));
   add(text(`Mesa     : ${order.tableNumber ? `Mesa ${order.tableNumber}` : "Para llevar"}`));
-  add(text(`Atendio  : ${order.user?.name || "-"}`));
+  add(text("Encargada: Claudia Márquez"));
+  add(text(`Atendió  : ${order.user?.name || "-"}`));
   add(line());
 
   // ── Tabla items ──
@@ -126,7 +128,8 @@ router.post("/", authMiddleware, (req, res) => {
   add(text("Gracias por su visita!"));
   add(text("¡Vuelva pronto!"));
   add(CMD.LF);
-  add(text("Baus S.A.S - 2026"));
+  add(CMD.LF);
+  add(text("Baussa - 2026"));
   add(CMD.LF);
   add(CMD.LF);
   add(CMD.CUT);
