@@ -59,6 +59,13 @@ app.use("/api/print",     printRoutes);
 app.use("/api/tables",    tableRoutes);
 app.use("/api/cash",      cashRoutes);
 
+// Verificar enum Role
+const { PrismaClient } = require("@prisma/client");
+const prisma2 = new PrismaClient();
+prisma2.$queryRaw`SELECT enum_range(NULL::"Role")`.then(r => {
+  console.log("Enum Role en DB:", JSON.stringify(r));
+}).catch(e => console.error("Error enum:", e.message));
+
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
