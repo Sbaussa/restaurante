@@ -54,20 +54,6 @@ app.use("/api/tables",    tableRoutes);
 app.use("/api/cash",      cashRoutes);
 app.use("/api/push",      pushRoutes);
 
-// ── RUTA TEMPORAL — borrar después de usarla ──
-const { PrismaClient } = require("@prisma/client");
-const prisma = new PrismaClient();
-app.delete("/api/admin/clear-orders", async (req, res) => {
-  try {
-    await prisma.orderItem.deleteMany();
-    await prisma.order.deleteMany();
-    res.json({ message: "Todos los pedidos han sido borrados" });
-  } catch (err) {
-    res.status(500).json({ message: "Error al borrar", error: err.message });
-  }
-});
-// ─────────────────────────────────────────────
-
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
