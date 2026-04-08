@@ -46,6 +46,7 @@ app.use(cors({
     process.env.FRONTEND_URL || "http://localhost:5173",
     "https://restaurante-frontend-xi.vercel.app",
   ],
+  credentials: true,
 }));
 app.use(express.json());
 

@@ -21,6 +21,7 @@ enum Role {
   ADMIN
   CASHIER
   KITCHEN
+  MESERO
 }
 
 model Category {
