@@ -12,6 +12,7 @@ const categoryRoutes  = require("./src/routes/category.routes");
 const printRoutes     = require("./src/routes/print.routes");
 const tableRoutes     = require("./src/routes/table.routes");
 const cashRoutes      = require("./src/routes/cash.routes");
+const { router: pushRoutes } = require("./src/routes/push.routes");
 
 const app    = express();
 const server = http.createServer(app);
@@ -59,13 +60,7 @@ app.use("/api/categories",categoryRoutes);
 app.use("/api/print",     printRoutes);
 app.use("/api/tables",    tableRoutes);
 app.use("/api/cash",      cashRoutes);
-
-// Verificar enum Role
-const { PrismaClient } = require("@prisma/client");
-const prisma2 = new PrismaClient();
-prisma2.$queryRaw`SELECT enum_range(NULL::"Role")`.then(r => {
-  console.log("Enum Role en DB:", JSON.stringify(r));
-}).catch(e => console.error("Error enum:", e.message));
+app.use("/api/push",      pushRoutes);
 
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });

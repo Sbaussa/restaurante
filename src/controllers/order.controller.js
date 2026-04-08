@@ -62,6 +62,15 @@ const create = async (req, res) => {
     });
 
     req.io.emit("order:new", order);
+
+    // Notifica a cocina
+    const { notifyRole } = require("./src/routes/push.routes");
+    notifyRole(["KITCHEN", "ADMIN"], {
+      title: `🍳 Nuevo pedido #${order.id}`,
+      body:  order.tableNumber ? `Mesa ${order.tableNumber}` : "Para llevar",
+      icon:  "/iconoweb.ico",
+    }).catch(() => {});
+
     res.status(201).json(order);
   } catch (err) {
     res.status(400).json({ message: "Error al crear pedido", error: err.message });
@@ -79,7 +88,24 @@ const updateStatus = async (req, res) => {
         user:  { select: { id: true, name: true } },
       },
     });
+
     req.io.emit("order:updated", order);
+
+    // Notifica solo al mesero que creó el pedido cuando está listo
+    if (status === "READY") {
+      const { notifyRole } = require("../routes/push.routes");
+      
+      // Obtener el userId del pedido
+      const { notifyUser } = require("../routes/push.routes");
+      notifyUser(order.user.id, {
+        title: `🔔 Pedido #${order.id} listo`,
+        body:  order.tableNumber
+          ? `Mesa ${order.tableNumber} — listo para entregar`
+          : "Para llevar — listo para entregar",
+        icon:  "/iconoweb.ico",
+      }).catch(() => {});
+    }
+
     res.json(order);
   } catch (err) {
     res.status(400).json({ message: "Error al actualizar estado", error: err.message });
