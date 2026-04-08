@@ -23,6 +23,7 @@ enum Role {
   ADMIN
   CASHIER
   KITCHEN
+  MESERO
 }
 
 // ─── Categorías de productos ─────────────────────────────────────────────────
