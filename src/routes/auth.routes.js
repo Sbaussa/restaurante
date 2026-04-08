@@ -10,6 +10,7 @@ router.post("/register", register);
 router.post("/login",    login);
 router.get("/me",        authMiddleware, me);
 
+// GET /api/auth/users
 router.get("/users", authMiddleware, requireRole("ADMIN"), async (req, res) => {
   const users = await prisma.user.findMany({
     select: { id: true, name: true, email: true, role: true, createdAt: true },
@@ -18,6 +19,7 @@ router.get("/users", authMiddleware, requireRole("ADMIN"), async (req, res) => {
   res.json(users);
 });
 
+// POST /api/auth/users
 router.post("/users", authMiddleware, requireRole("ADMIN"), async (req, res) => {
   const { name, email, password, role } = req.body;
   if (!name || !email || !password || !role)
@@ -32,10 +34,13 @@ router.post("/users", authMiddleware, requireRole("ADMIN"), async (req, res) => 
     });
     res.status(201).json(user);
   } catch (err) {
-    res.status(500).json({ message: "Error al crear usuario" });
+    console.error("Error crear usuario:", err.message);
+    console.error("Detalle:", err);
+    res.status(500).json({ message: "Error al crear usuario", detail: err.message });
   }
 });
 
+// PUT /api/auth/users/:id
 router.put("/users/:id", authMiddleware, requireRole("ADMIN"), async (req, res) => {
   const { name, email, role, password } = req.body;
   try {
@@ -48,10 +53,12 @@ router.put("/users/:id", authMiddleware, requireRole("ADMIN"), async (req, res) 
     });
     res.json(user);
   } catch (err) {
+    console.error("Error actualizar usuario:", err.message);
     res.status(400).json({ message: "Error al actualizar usuario" });
   }
 });
 
+// DELETE /api/auth/users/:id
 router.delete("/users/:id", authMiddleware, requireRole("ADMIN"), async (req, res) => {
   try {
     if (Number(req.params.id) === req.user.id)
@@ -59,6 +66,7 @@ router.delete("/users/:id", authMiddleware, requireRole("ADMIN"), async (req, re
     await prisma.user.delete({ where: { id: Number(req.params.id) } });
     res.json({ message: "Usuario eliminado" });
   } catch (err) {
+    console.error("Error eliminar usuario:", err.message);
     res.status(400).json({ message: "Error al eliminar usuario" });
   }
 });
