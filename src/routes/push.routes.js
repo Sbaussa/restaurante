@@ -8,7 +8,6 @@ webpush.setVapidDetails(
   process.env.VAPID_PRIVATE_KEY
 );
 
-// Suscripciones en memoria (en producción usarías la DB)
 const subscriptions = new Map(); // userId -> subscription
 
 // POST /api/push/subscribe
@@ -34,6 +33,23 @@ const notifyUser = async (userId, payload) => {
   } catch (err) {
     console.error(`Error push usuario ${userId}:`, err.message);
     if (err.statusCode === 410) subscriptions.delete(userId);
+  }
+};
+
+// Notifica a todos los usuarios de un rol
+const notifyRole = async (roles, payload) => {
+  const { PrismaClient } = require("@prisma/client");
+  const prisma = new PrismaClient();
+  try {
+    const users = await prisma.user.findMany({
+      where: { role: { in: roles } },
+      select: { id: true },
+    });
+    for (const user of users) {
+      await notifyUser(user.id, payload);
+    }
+  } finally {
+    await prisma.$disconnect();
   }
 };
 
