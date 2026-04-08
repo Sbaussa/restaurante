@@ -1,10 +1,11 @@
-const router = require("express").Router();
+const router  = require("express").Router();
 const { PrismaClient } = require("@prisma/client");
 const { authMiddleware } = require("../middlewares/auth.middleware");
 
 const prisma = new PrismaClient();
 
 router.get("/", authMiddleware, async (req, res) => {
+  // Solo pedidos activos — sin límite de fecha para no perder pedidos largos
   const activeOrders = await prisma.order.findMany({
     where: {
       tableNumber: { not: null },
