@@ -18,7 +18,6 @@ const app    = express();
 const server = http.createServer(app);
 const PORT   = process.env.PORT || 3002;
 
-// ─── Socket.io ───────────────────────────────────────────
 const io = new Server(server, {
   cors: {
     origin: [
@@ -29,19 +28,13 @@ const io = new Server(server, {
   },
 });
 
-app.use((req, res, next) => {
-  req.io = io;
-  next();
-});
+app.use((req, res, next) => { req.io = io; next(); });
 
 io.on("connection", (socket) => {
   console.log("Cliente conectado:", socket.id);
-  socket.on("disconnect", () => {
-    console.log("Cliente desconectado:", socket.id);
-  });
+  socket.on("disconnect", () => console.log("Cliente desconectado:", socket.id));
 });
 
-// ─── Middlewares globales ────────────────────────────────
 app.use(cors({
   origin: [
     process.env.FRONTEND_URL || "http://localhost:5173",
@@ -51,7 +44,6 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// ─── Rutas ───────────────────────────────────────────────
 app.use("/api/auth",      authRoutes);
 app.use("/api/products",  productRoutes);
 app.use("/api/orders",    orderRoutes);
@@ -61,6 +53,20 @@ app.use("/api/print",     printRoutes);
 app.use("/api/tables",    tableRoutes);
 app.use("/api/cash",      cashRoutes);
 app.use("/api/push",      pushRoutes);
+
+// ── RUTA TEMPORAL — borrar después de usarla ──
+const { PrismaClient } = require("@prisma/client");
+const prisma = new PrismaClient();
+app.delete("/api/admin/clear-orders", async (req, res) => {
+  try {
+    await prisma.orderItem.deleteMany();
+    await prisma.order.deleteMany();
+    res.json({ message: "Todos los pedidos han sido borrados" });
+  } catch (err) {
+    res.status(500).json({ message: "Error al borrar", error: err.message });
+  }
+});
+// ─────────────────────────────────────────────
 
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });

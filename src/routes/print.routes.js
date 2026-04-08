@@ -5,7 +5,8 @@ const os = require("os");
 const path = require("path");
 const { exec } = require("child_process");
 
-const PRINTER_NAME = "EPSON TM-T88V Receipt";
+const PRINTER_NAME_1 = "EPSON TM-T88V Receipt";
+const PRINTER_NAME_2 = "POS Printer 203DPI  Series";
 
 const ESC = 0x1b;
 const GS  = 0x1d;
@@ -44,14 +45,11 @@ function row(col1, col2, col3, widths = [21, 10, 11]) {
   return text(pad(col1, widths[0]) + pad(col2, widths[1], true) + pad(col3, widths[2], true));
 }
 
-// ── Función para enviar a impresora ──
-function sendToPrinter(receipt, res) {
-  const tmpBin = path.join(os.tmpdir(), `receipt_${Date.now()}.bin`);
-  const tmpPs  = path.join(os.tmpdir(), `print_${Date.now()}.ps1`);
-
-  const psScript = `
-$printerName = "${PRINTER_NAME}"
-$filePath    = "${tmpBin.replace(/\\/g, "\\\\")}"
+// ── Genera el script PowerShell para una impresora ──
+function buildPsScript(printerName, filePath) {
+  return `
+$printerName = "${printerName}"
+$filePath    = "${filePath.replace(/\\/g, "\\\\")}"
 $bytes       = [System.IO.File]::ReadAllBytes($filePath)
 
 $src = @"
@@ -105,35 +103,44 @@ $written = 0
 
 Write-Output "OK:$written"
 `;
+}
 
-  fs.writeFile(tmpBin, receipt, (errBin) => {
-    if (errBin) {
-      console.error("Error al escribir archivo temporal:", errBin.message);
-      return res.status(500).json({ message: "Error al preparar la impresion." });
-    }
+// ── Imprime en una impresora específica ──
+function printToPrinter(printerName, receipt) {
+  return new Promise((resolve, reject) => {
+    const tmpBin = path.join(os.tmpdir(), `receipt_${Date.now()}_${Math.random().toString(36).slice(2)}.bin`);
+    const tmpPs  = path.join(os.tmpdir(), `print_${Date.now()}_${Math.random().toString(36).slice(2)}.ps1`);
+    const script = buildPsScript(printerName, tmpBin);
 
-    fs.writeFile(tmpPs, psScript, "utf8", (errPs) => {
-      if (errPs) {
-        console.error("Error ps1:", errPs.message);
-        return res.status(500).json({ message: "Error al preparar el script." });
-      }
-
-      const cmd = `powershell -NoProfile -ExecutionPolicy Bypass -File "${tmpPs}"`;
-
-      exec(cmd, (execErr, stdout, stderr) => {
-        fs.unlink(tmpBin, () => {});
-        fs.unlink(tmpPs,  () => {});
-
-        if (execErr) {
-          console.error("Error PowerShell:", stderr);
-          return res.status(500).json({ message: "Error al imprimir.", error: stderr });
-        }
-
-        console.log("Resultado impresion:", stdout.trim());
-        res.json({ message: "Impreso correctamente" });
+    fs.writeFile(tmpBin, receipt, (errBin) => {
+      if (errBin) return reject(errBin);
+      fs.writeFile(tmpPs, script, "utf8", (errPs) => {
+        if (errPs) return reject(errPs);
+        const cmd = `powershell -NoProfile -ExecutionPolicy Bypass -File "${tmpPs}"`;
+        exec(cmd, (execErr, stdout, stderr) => {
+          fs.unlink(tmpBin, () => {});
+          fs.unlink(tmpPs,  () => {});
+          if (execErr) return reject(new Error(stderr));
+          resolve(stdout.trim());
+        });
       });
     });
   });
+}
+
+// ── Imprime en ambas impresoras ──
+async function sendToPrinter(receipt, res) {
+  try {
+    await Promise.all([
+      printToPrinter(PRINTER_NAME_1, receipt),
+      printToPrinter(PRINTER_NAME_2, receipt),
+    ]);
+    console.log("Impreso en ambas impresoras");
+    res.json({ message: "Impreso correctamente" });
+  } catch (err) {
+    console.error("Error al imprimir:", err.message);
+    res.status(500).json({ message: "Error al imprimir.", error: err.message });
+  }
 }
 
 // ══════════════════════════════════════════════════════════
@@ -157,7 +164,7 @@ router.post("/", authMiddleware, (req, res) => {
   add(text("El Nuevo Baraton"));
   add(CMD.DOUBLE_OFF);
   add(text("Calle 70 #61 - Barranquilla"));
-  add(text("NIT: 123456789-0"));
+  add(text("CC: 22746376"));
   add(text("Encargada: Claudia Marquez"));
   add(line());
 
@@ -166,6 +173,9 @@ router.post("/", authMiddleware, (req, res) => {
   add(text(`Fecha    : ${fecha}`));
   add(text(`Mesa     : ${order.tableNumber ? `Mesa ${order.tableNumber}` : "Para llevar"}`));
   add(text(`Atendio  : ${order.user?.name || "-"}`));
+  add(text("Telefono : 312 2035078"));
+  add(CMD.LF);
+  add(text(`Notas    : ${order.notes || "-"}`));
   add(line());
 
   add(CMD.BOLD_ON);
@@ -213,10 +223,10 @@ router.post("/", authMiddleware, (req, res) => {
 
   add(CMD.ALIGN_CENTER);
   add(CMD.LF);
-  add(text("Gracias por su visita!"));
-  add(text("Vuelva pronto!"));
+  add(text("Gracias por su visita"));
+  add(text("¡Lo esperamos de vuelta!"));
   add(CMD.LF);
-  add(text("Baus S.A.S - 2026"));
+  add(text("Baussa - 2026"));
   add(CMD.LF);
   add(CMD.LF);
   add(CMD.CUT);
@@ -225,7 +235,7 @@ router.post("/", authMiddleware, (req, res) => {
 });
 
 // ══════════════════════════════════════════════════════════
-// POST /api/print/kitchen — Ticket de cocina (grande y claro)
+// POST /api/print/kitchen — Ticket de cocina
 // ══════════════════════════════════════════════════════════
 router.post("/kitchen", authMiddleware, (req, res) => {
   const { order } = req.body;
@@ -238,33 +248,35 @@ router.post("/kitchen", authMiddleware, (req, res) => {
   const add = (...buffers) => buffers.forEach((b) => chunks.push(b));
 
   add(CMD.INIT);
-
-  // ── Título grande ──
   add(CMD.ALIGN_CENTER);
   add(CMD.BOLD_ON);
   add(CMD.DOUBLE_ON);
+  add(CMD.LF);
+  add(CMD.LF);
+  add(CMD.LF);
   add(text("*** COCINA ***"));
   add(CMD.DOUBLE_OFF);
   add(CMD.BOLD_OFF);
   add(line("="));
+  add(CMD.LF); // espacio extra
 
-  // ── Mesa o para llevar (grande) ──
   add(CMD.BOLD_ON);
   add(CMD.DOUBLE_ON);
   add(text(order.tableNumber ? `MESA ${order.tableNumber}` : "PARA LLEVAR"));
   add(CMD.DOUBLE_OFF);
   add(CMD.BOLD_OFF);
   add(line("="));
+  add(CMD.LF); // espacio extra
 
-  // ── Info pedido ──
   add(CMD.ALIGN_LEFT);
   add(CMD.BOLD_ON);
   add(text(`Pedido #${order.id}    ${fecha}`));
   add(text(`Mesero: ${order.user?.name || "-"}`));
   add(CMD.BOLD_OFF);
   add(line());
+  add(CMD.LF); // espacio extra
+  add(CMD.LF);
 
-  // ── Items (grande y claro) ──
   add(CMD.ALIGN_LEFT);
   order.items.forEach((item) => {
     add(CMD.BOLD_ON);
@@ -272,11 +284,12 @@ router.post("/kitchen", authMiddleware, (req, res) => {
     add(text(`${item.quantity}x ${item.product.name}`));
     add(CMD.DOUBLE_OFF);
     add(CMD.BOLD_OFF);
+    add(CMD.LF); // espacio entre productos
   });
 
   add(line());
+  add(CMD.LF); // espacio extra
 
-  // ── Notas (si hay) ──
   if (order.notes) {
     add(CMD.BOLD_ON);
     add(text("NOTAS:"));
@@ -285,8 +298,18 @@ router.post("/kitchen", authMiddleware, (req, res) => {
     add(text(order.notes));
     add(CMD.DOUBLE_OFF);
     add(line());
+    add(CMD.LF); // espacio extra
+    add(CMD.LF);
+    add(CMD.LF);
+    add(CMD.LF);
+  
   }
 
+
+  // más saltos de línea al final para dar aire
+  add(CMD.LF);
+  add(CMD.LF);
+  add(CMD.LF);
   add(CMD.LF);
   add(CMD.LF);
   add(CMD.CUT);
@@ -295,3 +318,4 @@ router.post("/kitchen", authMiddleware, (req, res) => {
 });
 
 module.exports = router;
+
