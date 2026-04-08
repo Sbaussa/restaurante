@@ -44,6 +44,9 @@ router.post("/users", authMiddleware, requireRole("ADMIN"), async (req, res) => 
 router.put("/users/:id", authMiddleware, requireRole("ADMIN"), async (req, res) => {
   const { name, email, role, password } = req.body;
   try {
+    const target = await prisma.user.findUnique({ where: { id: Number(req.params.id) } });
+    if (target?.email === "admin@baussas.com")
+      return res.status(403).json({ message: "No se puede modificar al administrador principal" });
     const data = { name, email, role };
     if (password) data.password = await bcrypt.hash(password, 10);
     const user = await prisma.user.update({
@@ -63,6 +66,9 @@ router.delete("/users/:id", authMiddleware, requireRole("ADMIN"), async (req, re
   try {
     if (Number(req.params.id) === req.user.id)
       return res.status(400).json({ message: "No puedes eliminarte a ti mismo" });
+    const target = await prisma.user.findUnique({ where: { id: Number(req.params.id) } });
+    if (target?.email === "admin@baussas.com")
+      return res.status(403).json({ message: "No se puede eliminar al administrador principal" });
     await prisma.user.delete({ where: { id: Number(req.params.id) } });
     res.json({ message: "Usuario eliminado" });
   } catch (err) {
