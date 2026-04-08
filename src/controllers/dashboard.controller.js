@@ -29,10 +29,10 @@ const getStats = async (req, res) => {
     cancelledOrders, prevRevenue, paymentMethods, recentOrders, categorySales,
   ] = await Promise.all([
     prisma.order.count({
-      where: { createdAt: { gte: start, lte: end }, status: { not: "CANCELLED" } },
+      where: { createdAt: { gte: start, lte: end }, status: "DELIVERED" },
     }),
     prisma.order.aggregate({
-      where: { createdAt: { gte: start, lte: end }, status: { not: "CANCELLED" } },
+      where: { createdAt: { gte: start, lte: end }, status: "DELIVERED" },
       _sum: { total: true },
     }),
     prisma.order.count({
@@ -40,7 +40,7 @@ const getStats = async (req, res) => {
     }),
     prisma.orderItem.groupBy({
       by: ["productId"],
-      where: { order: { createdAt: { gte: start, lte: end }, status: { not: "CANCELLED" } } },
+      where: { order: { createdAt: { gte: start, lte: end }, status: "DELIVERED" } },
       _sum:    { quantity: true },
       orderBy: { _sum: { quantity: "desc" } },
       take: 5,
@@ -49,7 +49,7 @@ const getStats = async (req, res) => {
       where: { createdAt: { gte: start, lte: end }, status: "CANCELLED" },
     }),
     prisma.order.aggregate({
-      where: { createdAt: { gte: prevStart, lte: prevEnd }, status: { not: "CANCELLED" } },
+      where: { createdAt: { gte: prevStart, lte: prevEnd }, status: "DELIVERED" },
       _sum: { total: true },
     }),
     prisma.order.groupBy({
@@ -73,7 +73,7 @@ const getStats = async (req, res) => {
     }),
     prisma.orderItem.groupBy({
       by: ["productId"],
-      where: { order: { createdAt: { gte: start, lte: end }, status: { not: "CANCELLED" } } },
+      where: { order: { createdAt: { gte: start, lte: end }, status: "DELIVERED" } },
       _sum: { quantity: true },
     }),
   ]);
@@ -129,7 +129,7 @@ const getSalesByHour = async (req, res) => {
   const { start, end } = buildDateRange(req.query);
 
   const orders = await prisma.order.findMany({
-    where:  { createdAt: { gte: start, lte: end }, status: { not: "CANCELLED" } },
+    where:  { createdAt: { gte: start, lte: end }, status: "DELIVERED" },
     select: { total: true, createdAt: true },
   });
 
