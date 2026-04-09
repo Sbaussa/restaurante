@@ -5,11 +5,9 @@ const { authMiddleware } = require("../middlewares/auth.middleware");
 const prisma = new PrismaClient();
 
 router.get("/", authMiddleware, async (req, res) => {
-  const date  = req.query.date || new Date().toISOString().split("T")[0];
-  const start = new Date(date);
-  start.setHours(0, 0, 0, 0);
-  const end = new Date(date);
-  end.setHours(23, 59, 59, 999);
+  const date  = req.query.date || new Date(Date.now() - 5*60*60*1000).toISOString().split("T")[0];
+  const start = new Date(date + "T00:00:00-05:00");
+  const end   = new Date(date + "T23:59:59-05:00");
 
   const [delivered, cancelled, paymentBreakdown, topProducts] = await Promise.all([
     prisma.order.findMany({
