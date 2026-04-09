@@ -4,17 +4,14 @@ const prisma = new PrismaClient();
 function buildDateRange(query) {
   const { date, from, to } = query;
   if (from && to) {
-    const start = new Date(from);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(to);
-    end.setHours(23, 59, 59, 999);
+    const start = new Date(from + "T00:00:00-05:00");
+    const end   = new Date(to   + "T23:59:59-05:00");
     return { start, end };
   }
-  const base = date ? new Date(date) : new Date();
-  base.setHours(0, 0, 0, 0);
-  const end = new Date(base);
-  end.setHours(23, 59, 59, 999);
-  return { start: base, end };
+  const d = date || new Date(Date.now() - 5*60*60*1000).toISOString().split("T")[0];
+  const start = new Date(d + "T00:00:00-05:00");
+  const end   = new Date(d + "T23:59:59-05:00");
+  return { start, end };
 }
 
 const getStats = async (req, res) => {
