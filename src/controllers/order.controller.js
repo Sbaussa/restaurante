@@ -6,10 +6,9 @@ const getAll = async (req, res) => {
   const where = {};
   if (status) where.status = status;
   if (date) {
-    const start = new Date(date);
-    const end   = new Date(date);
-    end.setDate(end.getDate() + 1);
-    where.createdAt = { gte: start, lt: end };
+    const start = new Date(date + "T00:00:00-05:00");
+    const end   = new Date(date + "T23:59:59-05:00");
+    where.createdAt = { gte: start, lte: end };
   }
   const orders = await prisma.order.findMany({
     where,
@@ -63,7 +62,6 @@ const create = async (req, res) => {
 
     req.io.emit("order:new", order);
 
-    // Notifica a cocina
     try {
       const { notifyRole } = require("../routes/push.routes");
       await notifyRole(["KITCHEN", "ADMIN"], {
@@ -94,7 +92,6 @@ const updateStatus = async (req, res) => {
 
     req.io.emit("order:updated", order);
 
-    // Notifica al mesero que creó el pedido cuando está listo
     if (status === "READY") {
       try {
         const { notifyUser } = require("../routes/push.routes");
