@@ -129,4 +129,49 @@ const updatePayment = async (req, res) => {
   }
 };
 
-module.exports = { getAll, getById, create, updateStatus, updatePayment };
+const updateOrder = async (req, res) => {
+  const { items, notes } = req.body;
+  try {
+    const order = await prisma.order.findUnique({
+      where: { id: Number(req.params.id) },
+    });
+    if (!order) return res.status(404).json({ message: "Pedido no encontrado" });
+    if (["DELIVERED", "CANCELLED"].includes(order.status))
+      return res.status(400).json({ message: "No se puede editar un pedido entregado o cancelado" });
+
+    const productIds = items.map((i) => i.productId);
+    const products   = await prisma.product.findMany({ where: { id: { in: productIds } } });
+    const productMap = Object.fromEntries(products.map((p) => [p.id, p]));
+
+    let total = 0;
+    const orderItems = items.map(({ productId, quantity }) => {
+      const product = productMap[productId];
+      if (!product) throw new Error(`Producto ${productId} no existe`);
+      total += product.price * quantity;
+      return { productId, quantity, unitPrice: product.price };
+    });
+
+    await prisma.orderItem.deleteMany({ where: { orderId: Number(req.params.id) } });
+
+    const updated = await prisma.order.update({
+      where: { id: Number(req.params.id) },
+      data: {
+        total,
+        notes: notes ?? order.notes,
+        items: { create: orderItems },
+      },
+      include: {
+        items: { include: { product: true } },
+        user:  { select: { id: true, name: true } },
+      },
+    });
+
+    req.io.emit("order:updated", updated);
+    res.json(updated);
+  } catch (err) {
+    console.error("Error editar pedido:", err.message);
+    res.status(400).json({ message: "Error al editar pedido", error: err.message });
+  }
+};
+
+module.exports = { getAll, getById, create, updateStatus, updatePayment, updateOrder };
