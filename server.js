@@ -13,7 +13,7 @@ const printRoutes     = require("./src/routes/print.routes");
 const tableRoutes     = require("./src/routes/table.routes");
 const cashRoutes      = require("./src/routes/cash.routes");
 const { router: pushRoutes } = require("./src/routes/push.routes");
-const beerRoutes = require("./src/routes/Beer.routes");
+
 
 const app    = express();
 const server = http.createServer(app);
