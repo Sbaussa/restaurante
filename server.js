@@ -54,7 +54,6 @@ app.use("/api/print",     printRoutes);
 app.use("/api/tables",    tableRoutes);
 app.use("/api/cash",      cashRoutes);
 app.use("/api/push",      pushRoutes);
-app.use("/api/beers",     beerRoutes);
 
 // ── RUTA TEMPORAL — borrar duplicados de productos ──
 app.delete("/api/admin/clear-duplicate-products", async (req, res) => {
