@@ -103,3 +103,26 @@ server.listen(PORT, () => {
   console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
 });
 
+app.delete("/api/admin/clear-duplicate-products-force", async (req, res) => {
+  const { PrismaClient } = require("@prisma/client");
+  const prisma = new PrismaClient();
+  try {
+    const products = await prisma.product.findMany({ orderBy: { id: "asc" } });
+    const seen = {};
+    const toDelete = [];
+    products.forEach((p) => {
+      const key = `${p.name}-${p.categoryId}`;
+      if (seen[key]) toDelete.push(p.id);
+      else seen[key] = true;
+    });
+
+    // Borra los orderItems que referencian estos productos
+    await prisma.orderItem.deleteMany({ where: { productId: { in: toDelete } } });
+    // Ahora borra los productos
+    await prisma.product.deleteMany({ where: { id: { in: toDelete } } });
+
+    res.json({ message: `${toDelete.length} duplicados eliminados forzadamente` });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
