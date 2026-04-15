@@ -76,3 +76,64 @@ model OrderItem {
   productId Int
   product   Product @relation(fields: [productId], references: [id])
 }
+
+// ─── Agregar al final de schema.prisma ───────────────────────────────────────
+// Copia estos modelos y pégalos al final de tu archivo prisma/schema.prisma
+
+model BeerBrand {
+  id        Int       @id @default(autoincrement())
+  name      String    @unique   // "Águila", "Poker", "Club Colombia", etc.
+  imageUrl  String?
+  active    Boolean   @default(true)
+  beers     Beer[]
+}
+
+model Beer {
+  id            Int           @id @default(autoincrement())
+  brandId       Int
+  brand         BeerBrand     @relation(fields: [brandId], references: [id])
+  presentation  String        // "Botella 330ml", "Lata 269ml", "Paca x12", "Paca x30"
+  unitPrice     Float         // Precio por unidad o por paca
+  stock         Int           @default(0)
+  minStock      Int           @default(10)  // Alerta de stock bajo
+  active        Boolean       @default(true)
+  saleItems     BeerSaleItem[]
+  stockMovements BeerStockMovement[]
+  createdAt     DateTime      @default(now())
+}
+
+model BeerSale {
+  id        Int            @id @default(autoincrement())
+  total     Float
+  userId    Int
+  notes     String?
+  items     BeerSaleItem[]
+  createdAt DateTime       @default(now())
+}
+
+model BeerSaleItem {
+  id        Int      @id @default(autoincrement())
+  saleId    Int
+  sale      BeerSale @relation(fields: [saleId], references: [id])
+  beerId    Int
+  beer      Beer     @relation(fields: [beerId], references: [id])
+  quantity  Int      // Puede ser 1, 3, 4, 5 unidades sueltas o 1 paca
+  unitPrice Float
+}
+
+// Historial de entradas y salidas de inventario
+model BeerStockMovement {
+  id        Int           @id @default(autoincrement())
+  beerId    Int
+  beer      Beer          @relation(fields: [beerId], references: [id])
+  type      MovementType  // ENTRADA o SALIDA
+  quantity  Int
+  reason    String?       // "Compra proveedor", "Venta", "Ajuste", etc.
+  userId    Int
+  createdAt DateTime      @default(now())
+}
+
+enum MovementType {
+  ENTRADA
+  SALIDA
+}

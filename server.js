@@ -13,6 +13,7 @@ const printRoutes     = require("./src/routes/print.routes");
 const tableRoutes     = require("./src/routes/table.routes");
 const cashRoutes      = require("./src/routes/cash.routes");
 const { router: pushRoutes } = require("./src/routes/push.routes");
+const beerRoutes = require("./src/routes/Beer.routes");
 
 const app    = express();
 const server = http.createServer(app);
@@ -53,6 +54,28 @@ app.use("/api/print",     printRoutes);
 app.use("/api/tables",    tableRoutes);
 app.use("/api/cash",      cashRoutes);
 app.use("/api/push",      pushRoutes);
+app.use("/api/beers",     beerRoutes);
+
+// ── RUTA TEMPORAL — borrar duplicados de productos ──
+app.delete("/api/admin/clear-duplicate-products", async (req, res) => {
+  const { PrismaClient } = require("@prisma/client");
+  const prisma = new PrismaClient();
+  try {
+    const products = await prisma.product.findMany({ orderBy: { id: "asc" } });
+    const seen = {};
+    const toDelete = [];
+    products.forEach((p) => {
+      const key = `${p.name}-${p.categoryId}`;
+      if (seen[key]) toDelete.push(p.id);
+      else seen[key] = true;
+    });
+    await prisma.product.deleteMany({ where: { id: { in: toDelete } } });
+    res.json({ message: `${toDelete.length} duplicados eliminados`, ids: toDelete });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+// ───────────────────────────────────────────────────
 
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });

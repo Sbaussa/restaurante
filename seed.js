@@ -25,8 +25,7 @@ async function main() {
   });
   console.log(`✅ ${categorias.count} categorías creadas`);
 
-  // Obtener IDs de categorías
-  const cats = await prisma.category.findMany();
+   const cats = await prisma.category.findMany();
   const id = (name) => cats.find((c) => c.name === name).id;
 
   // ─── Productos ────────────────────────────────────────────────────────────
