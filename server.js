@@ -14,7 +14,6 @@ const tableRoutes     = require("./src/routes/table.routes");
 const cashRoutes      = require("./src/routes/cash.routes");
 const { router: pushRoutes } = require("./src/routes/push.routes");
 
-
 const app    = express();
 const server = http.createServer(app);
 const PORT   = process.env.PORT || 3002;
@@ -68,8 +67,21 @@ app.delete("/api/admin/clear-duplicate-products", async (req, res) => {
       if (seen[key]) toDelete.push(p.id);
       else seen[key] = true;
     });
-    await prisma.product.deleteMany({ where: { id: { in: toDelete } } });
-    res.json({ message: `${toDelete.length} duplicados eliminados`, ids: toDelete });
+
+    // Solo borra los que no tienen orderItems asociados
+    const withOrders = await prisma.orderItem.findMany({
+      where: { productId: { in: toDelete } },
+      select: { productId: true },
+    });
+    const withOrderIds = new Set(withOrders.map((o) => o.productId));
+    const safeToDelete = toDelete.filter((id) => !withOrderIds.has(id));
+
+    await prisma.product.deleteMany({ where: { id: { in: safeToDelete } } });
+    res.json({
+      message: `${safeToDelete.length} duplicados eliminados`,
+      skipped: toDelete.length - safeToDelete.length,
+      deleted: safeToDelete,
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -90,3 +102,4 @@ app.use((err, req, res, next) => {
 server.listen(PORT, () => {
   console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
 });
+
