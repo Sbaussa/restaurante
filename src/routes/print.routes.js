@@ -108,28 +108,32 @@ Write-Output "OK:$written"
 // ── Imprime en una impresora específica ──
 function printToPrinter(printerName, receipt) {
   return new Promise((resolve, reject) => {
-    const tmpBin = path.join(os.tmpdir(), `receipt_${Date.now()}_${Math.random().toString(36).slice(2)}.bin`);
-    const tmpPs  = path.join(os.tmpdir(), `print_${Date.now()}_${Math.random().toString(36).slice(2)}.ps1`);
-    const script = buildPsScript(printerName, tmpBin);
+    setTimeout(() => {
+      const tmpBin = path.join(os.tmpdir(), `receipt_${Date.now()}_${Math.random().toString(36).slice(2)}.bin`);
+      const tmpPs  = path.join(os.tmpdir(), `print_${Date.now()}_${Math.random().toString(36).slice(2)}.ps1`);
+      const script = buildPsScript(printerName, tmpBin);
 
-    fs.writeFile(tmpBin, receipt, (errBin) => {
-      if (errBin) return reject(errBin);
-      fs.writeFile(tmpPs, script, "utf8", (errPs) => {
-        if (errPs) return reject(errPs);
-        const cmd = `powershell -NoProfile -ExecutionPolicy Bypass -File "${tmpPs}"`;
-        exec(cmd, (execErr, stdout, stderr) => {
-          fs.unlink(tmpBin, () => {});
-          fs.unlink(tmpPs,  () => {});
-          if (execErr) return reject(new Error(stderr));
-          resolve(stdout.trim());
+      fs.writeFile(tmpBin, receipt, (errBin) => {
+        if (errBin) return reject(errBin);
+        fs.writeFile(tmpPs, script, "utf8", (errPs) => {
+          if (errPs) return reject(errPs);
+          const cmd = `powershell -NoProfile -ExecutionPolicy Bypass -File "${tmpPs}"`;
+          exec(cmd, (execErr, stdout, stderr) => {
+            fs.unlink(tmpBin, () => {});
+            fs.unlink(tmpPs,  () => {});
+            if (execErr) return reject(new Error(stderr));
+            console.log(`[${printerName}] stdout:`, stdout.trim());
+            resolve(stdout.trim());
+          });
         });
       });
-    });
+    }, 300);
   });
 }
 
 // ── Imprime en ambas impresoras ──
 async function sendToPrinter(receipt, res) {
+  console.log("Buffer size:", receipt.length, "bytes");
   try {
     await Promise.all([
       printToPrinter(PRINTER_NAME_1, receipt),
@@ -258,7 +262,7 @@ router.post("/kitchen", authMiddleware, (req, res) => {
   add(CMD.DOUBLE_OFF);
   add(CMD.BOLD_OFF);
   add(line("="));
-  add(CMD.LF); // espacio extra
+  add(CMD.LF);
 
   add(CMD.BOLD_ON);
   add(CMD.DOUBLE_ON);
@@ -266,7 +270,7 @@ router.post("/kitchen", authMiddleware, (req, res) => {
   add(CMD.DOUBLE_OFF);
   add(CMD.BOLD_OFF);
   add(line("="));
-  add(CMD.LF); // espacio extra
+  add(CMD.LF);
 
   add(CMD.ALIGN_LEFT);
   add(CMD.BOLD_ON);
@@ -274,7 +278,7 @@ router.post("/kitchen", authMiddleware, (req, res) => {
   add(text(`Mesero: ${order.user?.name || "-"}`));
   add(CMD.BOLD_OFF);
   add(line());
-  add(CMD.LF); // espacio extra
+  add(CMD.LF);
   add(CMD.LF);
 
   add(CMD.ALIGN_LEFT);
@@ -284,11 +288,11 @@ router.post("/kitchen", authMiddleware, (req, res) => {
     add(text(`${item.quantity}x ${item.product.name}`));
     add(CMD.DOUBLE_OFF);
     add(CMD.BOLD_OFF);
-    add(CMD.LF); // espacio entre productos
+    add(CMD.LF);
   });
 
   add(line());
-  add(CMD.LF); // espacio extra
+  add(CMD.LF);
 
   if (order.notes) {
     add(CMD.BOLD_ON);
@@ -298,15 +302,12 @@ router.post("/kitchen", authMiddleware, (req, res) => {
     add(text(order.notes));
     add(CMD.DOUBLE_OFF);
     add(line());
-    add(CMD.LF); // espacio extra
     add(CMD.LF);
     add(CMD.LF);
     add(CMD.LF);
-  
+    add(CMD.LF);
   }
 
-
-  // más saltos de línea al final para dar aire
   add(CMD.LF);
   add(CMD.LF);
   add(CMD.LF);
@@ -318,4 +319,3 @@ router.post("/kitchen", authMiddleware, (req, res) => {
 });
 
 module.exports = router;
-
