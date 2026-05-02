@@ -242,9 +242,13 @@ router.post("/", authMiddleware, (req, res) => {
     add(line());
   }
 
-  // TOTAL en la misma línea: "TOTAL" a la izquierda, valor a la derecha
+  // TOTAL en la misma línea — con DOUBLE_ON el ancho real es 21 chars
+  const totalValor = `$${order.total.toLocaleString("es-CO")}`;
+  const totalLabel = "TOTAL";
+  const totalSpaces = 21 - totalLabel.length - totalValor.length;
+  const totalLine = totalLabel + " ".repeat(Math.max(1, totalSpaces)) + totalValor;
   add(CMD.BOLD_ON, CMD.DOUBLE_ON);
-  add(row("TOTAL", "", `$${order.total.toLocaleString("es-CO")}`, [10, 10, 22]));
+  add(text(totalLine));
   add(CMD.DOUBLE_OFF, CMD.BOLD_OFF);
   add(line());
 
