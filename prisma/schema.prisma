@@ -57,6 +57,8 @@ model Order {
   items         OrderItem[]
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
+  orderType     String?   @default("MESA")   // "MESA" | "DOMICILIO" | "LLEVAR"
+  delivery      Delivery?
 }
 
 enum OrderStatus {
@@ -136,4 +138,12 @@ model BeerStockMovement {
 enum MovementType {
   ENTRADA
   SALIDA
+}
+model Delivery {
+  id           Int    @id @default(autoincrement())
+  orderId      Int    @unique
+  order        Order  @relation(fields: [orderId], references: [id])
+  customerName String?
+  phone        String?
+  address      String
 }
