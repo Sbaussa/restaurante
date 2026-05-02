@@ -175,7 +175,6 @@ router.post("/", authMiddleware, (req, res) => {
   add(text(`Pedido # : ${order.id}`));
   add(text(`Fecha    : ${fecha}`));
 
-  // Tipo de pedido
   const typeLabel = { MESA: `Mesa ${order.tableNumber || "?"}`, DOMICILIO: "Domicilio", LLEVAR: "Para Llevar" };
   add(text(`Tipo     : ${typeLabel[order.orderType] || (order.tableNumber ? `Mesa ${order.tableNumber}` : "Para llevar")}`));
 
@@ -187,7 +186,6 @@ router.post("/", authMiddleware, (req, res) => {
     add(text(`Notas    : ${order.notes}`));
   }
 
-  // ── Datos de domicilio ──
   if (isDelivery && order.delivery) {
     add(CMD.LF);
     add(line());
@@ -210,7 +208,6 @@ router.post("/", authMiddleware, (req, res) => {
     const nombre   = `${item.quantity}x ${item.product.name}`;
     const precio   = `$${item.unitPrice.toLocaleString("es-CO")}`;
     const subtotal = `$${(item.unitPrice * item.quantity).toLocaleString("es-CO")}`;
-
     if (nombre.length > 20) {
       add(text(nombre));
       add(row("", precio, subtotal));
@@ -229,7 +226,7 @@ router.post("/", authMiddleware, (req, res) => {
       MIXTO:         "Mixto",
     };
     add(CMD.ALIGN_LEFT);
-    add(text(`Pago con  : ${METHOD_LABELS[order.payment.method] || order.payment.method}`));
+    add(text(`Pago   : ${METHOD_LABELS[order.payment.method] || order.payment.method}`));
 
     if (order.payment.method === "EFECTIVO") {
       add(text(`Recibido  : $${order.payment.cashGiven.toLocaleString("es-CO")}`));
@@ -245,11 +242,10 @@ router.post("/", authMiddleware, (req, res) => {
     add(line());
   }
 
-  add(CMD.BOLD_ON);
-  add(CMD.DOUBLE_ON);
-  add(row("TOTAL", "", `$${order.total.toLocaleString("es-CO")}`, [21, 10, 11]));
-  add(CMD.DOUBLE_OFF);
-  add(CMD.BOLD_OFF);
+  // TOTAL en la misma línea: "TOTAL" a la izquierda, valor a la derecha
+  add(CMD.BOLD_ON, CMD.DOUBLE_ON);
+  add(row("TOTAL", "", `$${order.total.toLocaleString("es-CO")}`, [10, 10, 22]));
+  add(CMD.DOUBLE_OFF, CMD.BOLD_OFF);
   add(line());
 
   add(CMD.ALIGN_CENTER);
@@ -288,7 +284,6 @@ router.post("/kitchen", authMiddleware, (req, res) => {
   add(CMD.LF);
   add(CMD.LF);
 
-  // Tipo de pedido en grande
   if (isDelivery)                      add(text("** DOMICILIO **"));
   else if (order.orderType === "MESA") add(text(`MESA ${order.tableNumber || "?"}`));
   else                                 add(text("PARA LLEVAR"));
@@ -331,7 +326,6 @@ router.post("/kitchen", authMiddleware, (req, res) => {
     add(CMD.LF);
   }
 
-  // ── Datos domicilio en cocina ──
   if (isDelivery && order.delivery) {
     add(CMD.BOLD_ON);
     add(CMD.ALIGN_CENTER);
