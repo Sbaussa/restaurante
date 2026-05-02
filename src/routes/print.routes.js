@@ -5,7 +5,7 @@ const os = require("os");
 const path = require("path");
 const { exec } = require("child_process");
 
-const PRINTER_NAME_1 = "EPSON TM-T88V Receipt";
+const PRINTER_NAME_1 = "EPSON TM-T88V Receipt5";
 const PRINTER_NAME_2 = "POS Printer 203DPI  Series";
 
 const ESC = 0x1b;

@@ -1,5 +1,8 @@
 const { PrismaClient } = require("@prisma/client");
-const prisma = new PrismaClient();
+
+// ── Singleton: una sola instancia en todo el proceso ──
+const prisma = global.prisma ?? new PrismaClient();
+if (process.env.NODE_ENV !== "production") global.prisma = prisma;
 
 const getAll = async (req, res) => {
   const { status, date } = req.query;
@@ -10,27 +13,37 @@ const getAll = async (req, res) => {
     const end   = new Date(date + "T23:59:59-05:00");
     where.createdAt = { gte: start, lte: end };
   }
-  const orders = await prisma.order.findMany({
-    where,
-    include: {
-      items: { include: { product: true } },
-      user:  { select: { id: true, name: true } },
-    },
-    orderBy: { createdAt: "desc" },
-  });
-  res.json(orders);
+  try {
+    const orders = await prisma.order.findMany({
+      where,
+      include: {
+        items: { include: { product: true } },
+        user:  { select: { id: true, name: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+    res.json(orders);
+  } catch (err) {
+    console.error("Error getAll:", err.code, err.message);
+    res.status(503).json({ message: "Error al obtener pedidos" });
+  }
 };
 
 const getById = async (req, res) => {
-  const order = await prisma.order.findUnique({
-    where: { id: Number(req.params.id) },
-    include: {
-      items: { include: { product: { include: { category: true } } } },
-      user:  { select: { id: true, name: true } },
-    },
-  });
-  if (!order) return res.status(404).json({ message: "Pedido no encontrado" });
-  res.json(order);
+  try {
+    const order = await prisma.order.findUnique({
+      where: { id: Number(req.params.id) },
+      include: {
+        items: { include: { product: { include: { category: true } } } },
+        user:  { select: { id: true, name: true } },
+      },
+    });
+    if (!order) return res.status(404).json({ message: "Pedido no encontrado" });
+    res.json(order);
+  } catch (err) {
+    console.error("Error getById:", err.code, err.message);
+    res.status(503).json({ message: "Error al obtener pedido" });
+  }
 };
 
 const create = async (req, res) => {
@@ -44,9 +57,8 @@ const create = async (req, res) => {
     const orderItems = items.map(({ productId, quantity }) => {
       const product = productMap[productId];
       if (!product) throw new Error(`Producto ${productId} no existe`);
-      const unitPrice = product.price;
-      total += unitPrice * quantity;
-      return { productId, quantity, unitPrice };
+      total += product.price * quantity;
+      return { productId, quantity, unitPrice: product.price };
     });
 
     const order = await prisma.order.create({
@@ -125,6 +137,7 @@ const updatePayment = async (req, res) => {
     });
     res.json(order);
   } catch (err) {
+    console.error("Error guardar pago:", err.message);
     res.status(400).json({ message: "Error al guardar pago", error: err.message });
   }
 };
