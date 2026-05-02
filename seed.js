@@ -182,9 +182,6 @@ async function main() {
 
   console.log(`✅ Marcas de cerveza creadas: ${Object.keys(marcas).join(', ')}`);
 
-  // ──────────────────────────────────────────────
-  // 5. PRESENTACIONES DE CERVEZA
-  // ──────────────────────────────────────────────
   const cervezasData = [
     { brandId: marcas['Águila'].id,        presentation: 'Botella 330ml', unitPrice: 3500,  stock: 120, minStock: 24 },
     { brandId: marcas['Águila'].id,        presentation: 'Paca x30',      unitPrice: 90000, stock: 10,  minStock: 3  },
