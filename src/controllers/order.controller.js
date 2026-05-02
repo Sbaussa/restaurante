@@ -1,14 +1,12 @@
 const { PrismaClient } = require("@prisma/client");
 
-// ── Singleton: una sola instancia en todo el proceso ──
 const prisma = global.prisma ?? new PrismaClient();
 if (process.env.NODE_ENV !== "production") global.prisma = prisma;
 
-// ── Include reutilizable para no repetir en cada query ──
 const ORDER_INCLUDE = {
   items:    { include: { product: true } },
   user:     { select: { id: true, name: true } },
-  delivery: true,   // ← esto faltaba en TODOS los endpoints
+  delivery: true,
 };
 
 const getAll = async (req, res) => {
@@ -52,7 +50,6 @@ const getById = async (req, res) => {
 };
 
 const create = async (req, res) => {
-  // ← orderType y delivery ahora se reciben del body
   const { tableNumber, items, notes, orderType, delivery } = req.body;
 
   try {
@@ -74,9 +71,8 @@ const create = async (req, res) => {
         tableNumber: tableNumber || null,
         notes:       notes || null,
         userId:      req.user.id,
-        orderType:   orderType || "MESA",   // ← se guarda el tipo
+        orderType:   orderType || "MESA",
         items:       { create: orderItems },
-        // Si es domicilio y vienen datos de entrega, se crea la relación
         ...(orderType === "DOMICILIO" && delivery
           ? {
               delivery: {
@@ -151,11 +147,11 @@ const updateStatus = async (req, res) => {
 };
 
 const updatePayment = async (req, res) => {
-  const { paymentMethod, cashGiven, cashChange } = req.body;
+  const { paymentMethod, cashGiven, cashChange, transferAmount } = req.body;
   try {
     const order = await prisma.order.update({
       where:   { id: Number(req.params.id) },
-      data:    { paymentMethod, cashGiven, cashChange },
+      data:    { paymentMethod, cashGiven, cashChange, transferAmount: transferAmount || null },
       include: ORDER_INCLUDE,
     });
     res.json(order);
