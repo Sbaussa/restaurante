@@ -4,6 +4,13 @@ const { PrismaClient } = require("@prisma/client");
 const prisma = global.prisma ?? new PrismaClient();
 if (process.env.NODE_ENV !== "production") global.prisma = prisma;
 
+// ── Include reutilizable para no repetir en cada query ──
+const ORDER_INCLUDE = {
+  items:    { include: { product: true } },
+  user:     { select: { id: true, name: true } },
+  delivery: true,   // ← esto faltaba en TODOS los endpoints
+};
+
 const getAll = async (req, res) => {
   const { status, date } = req.query;
   const where = {};
@@ -16,11 +23,8 @@ const getAll = async (req, res) => {
   try {
     const orders = await prisma.order.findMany({
       where,
-      include: {
-        items: { include: { product: true } },
-        user:  { select: { id: true, name: true } },
-      },
-      orderBy: { createdAt: "desc" },
+      include:  ORDER_INCLUDE,
+      orderBy:  { createdAt: "desc" },
     });
     res.json(orders);
   } catch (err) {
@@ -32,10 +36,11 @@ const getAll = async (req, res) => {
 const getById = async (req, res) => {
   try {
     const order = await prisma.order.findUnique({
-      where: { id: Number(req.params.id) },
+      where:   { id: Number(req.params.id) },
       include: {
-        items: { include: { product: { include: { category: true } } } },
-        user:  { select: { id: true, name: true } },
+        items:    { include: { product: { include: { category: true } } } },
+        user:     { select: { id: true, name: true } },
+        delivery: true,
       },
     });
     if (!order) return res.status(404).json({ message: "Pedido no encontrado" });
@@ -47,7 +52,9 @@ const getById = async (req, res) => {
 };
 
 const create = async (req, res) => {
-  const { tableNumber, items, notes } = req.body;
+  // ← orderType y delivery ahora se reciben del body
+  const { tableNumber, items, notes, orderType, delivery } = req.body;
+
   try {
     const productIds = items.map((i) => i.productId);
     const products   = await prisma.product.findMany({ where: { id: { in: productIds } } });
@@ -67,18 +74,40 @@ const create = async (req, res) => {
         tableNumber: tableNumber || null,
         notes:       notes || null,
         userId:      req.user.id,
-        items: { create: orderItems },
+        orderType:   orderType || "MESA",   // ← se guarda el tipo
+        items:       { create: orderItems },
+        // Si es domicilio y vienen datos de entrega, se crea la relación
+        ...(orderType === "DOMICILIO" && delivery
+          ? {
+              delivery: {
+                create: {
+                  address:      delivery.address,
+                  customerName: delivery.customerName || null,
+                  phone:        delivery.phone || null,
+                },
+              },
+            }
+          : {}),
       },
-      include: { items: { include: { product: true } } },
+      include: ORDER_INCLUDE,
     });
 
     req.io.emit("order:new", order);
 
     try {
       const { notifyRole } = require("../routes/push.routes");
+      const bodyMsg =
+        orderType === "DOMICILIO"
+          ? `Domicilio — ${delivery?.address || ""}`
+          : orderType === "LLEVAR"
+          ? "Para llevar"
+          : tableNumber
+          ? `Mesa ${tableNumber}`
+          : "Para llevar";
+
       await notifyRole(["KITCHEN", "ADMIN"], {
         title: `🍳 Nuevo pedido #${order.id}`,
-        body:  order.tableNumber ? `Mesa ${order.tableNumber}` : "Para llevar",
+        body:  bodyMsg,
         icon:  "/iconoweb.ico",
       });
     } catch {}
@@ -94,12 +123,9 @@ const updateStatus = async (req, res) => {
   const { status } = req.body;
   try {
     const order = await prisma.order.update({
-      where: { id: Number(req.params.id) },
-      data:  { status },
-      include: {
-        items: { include: { product: true } },
-        user:  { select: { id: true, name: true } },
-      },
+      where:   { id: Number(req.params.id) },
+      data:    { status },
+      include: ORDER_INCLUDE,
     });
 
     req.io.emit("order:updated", order);
@@ -128,12 +154,9 @@ const updatePayment = async (req, res) => {
   const { paymentMethod, cashGiven, cashChange } = req.body;
   try {
     const order = await prisma.order.update({
-      where: { id: Number(req.params.id) },
-      data:  { paymentMethod, cashGiven, cashChange },
-      include: {
-        items: { include: { product: true } },
-        user:  { select: { id: true, name: true } },
-      },
+      where:   { id: Number(req.params.id) },
+      data:    { paymentMethod, cashGiven, cashChange },
+      include: ORDER_INCLUDE,
     });
     res.json(order);
   } catch (err) {
@@ -167,16 +190,13 @@ const updateOrder = async (req, res) => {
     await prisma.orderItem.deleteMany({ where: { orderId: Number(req.params.id) } });
 
     const updated = await prisma.order.update({
-      where: { id: Number(req.params.id) },
-      data: {
+      where:   { id: Number(req.params.id) },
+      data:    {
         total,
-        notes: notes ?? order.notes,
-        items: { create: orderItems },
+        notes:  notes ?? order.notes,
+        items:  { create: orderItems },
       },
-      include: {
-        items: { include: { product: true } },
-        user:  { select: { id: true, name: true } },
-      },
+      include: ORDER_INCLUDE,
     });
 
     req.io.emit("order:updated", updated);
