@@ -44,21 +44,22 @@ model Product {
 }
 
 model Order {
-  id            Int         @id @default(autoincrement())
-  total         Float
-  status        OrderStatus @default(PENDING)
-  tableNumber   Int?
-  notes         String?
-  paymentMethod String?
-  cashGiven     Float?
-  cashChange    Float?
-  userId        Int
-  user          User        @relation(fields: [userId], references: [id])
-  items         OrderItem[]
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-  orderType     String?   @default("MESA")   // "MESA" | "DOMICILIO" | "LLEVAR"
-  delivery      Delivery?
+  id             Int         @id @default(autoincrement())
+  total          Float
+  status         OrderStatus @default(PENDING)
+  tableNumber    Int?
+  notes          String?
+  paymentMethod  String?
+  cashGiven      Float?
+  cashChange     Float?
+  transferAmount Float?
+  orderType      String?     @default("MESA")
+  userId         Int
+  user           User        @relation(fields: [userId], references: [id])
+  items          OrderItem[]
+  delivery       Delivery?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
 }
 
 enum OrderStatus {
@@ -79,29 +80,35 @@ model OrderItem {
   product   Product @relation(fields: [productId], references: [id])
 }
 
-// ─── Agregar al final de schema.prisma ───────────────────────────────────────
-// Copia estos modelos y pégalos al final de tu archivo prisma/schema.prisma
+model Delivery {
+  id           Int     @id @default(autoincrement())
+  orderId      Int     @unique
+  order        Order   @relation(fields: [orderId], references: [id])
+  customerName String?
+  phone        String?
+  address      String
+}
 
 model BeerBrand {
   id        Int       @id @default(autoincrement())
-  name      String    @unique   // "Águila", "Poker", "Club Colombia", etc.
+  name      String    @unique
   imageUrl  String?
   active    Boolean   @default(true)
   beers     Beer[]
 }
 
 model Beer {
-  id            Int           @id @default(autoincrement())
-  brandId       Int
-  brand         BeerBrand     @relation(fields: [brandId], references: [id])
-  presentation  String        // "Botella 330ml", "Lata 269ml", "Paca x12", "Paca x30"
-  unitPrice     Float         // Precio por unidad o por paca
-  stock         Int           @default(0)
-  minStock      Int           @default(10)  // Alerta de stock bajo
-  active        Boolean       @default(true)
-  saleItems     BeerSaleItem[]
+  id             Int                 @id @default(autoincrement())
+  brandId        Int
+  brand          BeerBrand           @relation(fields: [brandId], references: [id])
+  presentation   String
+  unitPrice      Float
+  stock          Int                 @default(0)
+  minStock       Int                 @default(10)
+  active         Boolean             @default(true)
+  saleItems      BeerSaleItem[]
   stockMovements BeerStockMovement[]
-  createdAt     DateTime      @default(now())
+  createdAt      DateTime            @default(now())
 }
 
 model BeerSale {
@@ -119,31 +126,22 @@ model BeerSaleItem {
   sale      BeerSale @relation(fields: [saleId], references: [id])
   beerId    Int
   beer      Beer     @relation(fields: [beerId], references: [id])
-  quantity  Int      // Puede ser 1, 3, 4, 5 unidades sueltas o 1 paca
+  quantity  Int
   unitPrice Float
 }
 
-// Historial de entradas y salidas de inventario
 model BeerStockMovement {
-  id        Int           @id @default(autoincrement())
+  id        Int          @id @default(autoincrement())
   beerId    Int
-  beer      Beer          @relation(fields: [beerId], references: [id])
-  type      MovementType  // ENTRADA o SALIDA
+  beer      Beer         @relation(fields: [beerId], references: [id])
+  type      MovementType
   quantity  Int
-  reason    String?       // "Compra proveedor", "Venta", "Ajuste", etc.
+  reason    String?
   userId    Int
-  createdAt DateTime      @default(now())
+  createdAt DateTime     @default(now())
 }
 
 enum MovementType {
   ENTRADA
   SALIDA
-}
-model Delivery {
-  id           Int    @id @default(autoincrement())
-  orderId      Int    @unique
-  order        Order  @relation(fields: [orderId], references: [id])
-  customerName String?
-  phone        String?
-  address      String
 }

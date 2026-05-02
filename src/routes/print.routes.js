@@ -45,7 +45,6 @@ function row(col1, col2, col3, widths = [21, 10, 11]) {
   return text(pad(col1, widths[0]) + pad(col2, widths[1], true) + pad(col3, widths[2], true));
 }
 
-// ── Genera el script PowerShell para una impresora ──
 function buildPsScript(printerName, filePath) {
   return `
 $printerName = "${printerName}"
@@ -105,7 +104,6 @@ Write-Output "OK:$written"
 `;
 }
 
-// ── Imprime en una impresora específica ──
 function printToPrinter(printerName, receipt) {
   return new Promise((resolve, reject) => {
     setTimeout(() => {
@@ -131,7 +129,6 @@ function printToPrinter(printerName, receipt) {
   });
 }
 
-// ── Imprime en ambas impresoras ──
 async function sendToPrinter(receipt, res) {
   console.log("Buffer size:", receipt.length, "bytes");
   try {
@@ -159,6 +156,8 @@ router.post("/", authMiddleware, (req, res) => {
     hour12: true,
   });
 
+  const isDelivery = order.orderType === "DOMICILIO";
+
   const chunks = [];
   const add = (...buffers) => buffers.forEach((b) => chunks.push(b));
 
@@ -175,11 +174,31 @@ router.post("/", authMiddleware, (req, res) => {
   add(CMD.ALIGN_LEFT);
   add(text(`Pedido # : ${order.id}`));
   add(text(`Fecha    : ${fecha}`));
-  add(text(`Mesa     : ${order.tableNumber ? `Mesa ${order.tableNumber}` : "Para llevar"}`));
+
+  // Tipo de pedido
+  const typeLabel = { MESA: `Mesa ${order.tableNumber || "?"}`, DOMICILIO: "Domicilio", LLEVAR: "Para Llevar" };
+  add(text(`Tipo     : ${typeLabel[order.orderType] || (order.tableNumber ? `Mesa ${order.tableNumber}` : "Para llevar")}`));
+
   add(text(`Atendio  : ${order.user?.name || "-"}`));
   add(text("Telefono : 312 2035078"));
-  add(CMD.LF);
-  add(text(`Notas    : ${order.notes || "-"}`));
+
+  if (order.notes) {
+    add(CMD.LF);
+    add(text(`Notas    : ${order.notes}`));
+  }
+
+  // ── Datos de domicilio ──
+  if (isDelivery && order.delivery) {
+    add(CMD.LF);
+    add(line());
+    add(CMD.BOLD_ON);
+    add(text("  >> DATOS DE ENTREGA"));
+    add(CMD.BOLD_OFF);
+    if (order.delivery.customerName) add(text(`  Cliente  : ${order.delivery.customerName}`));
+    if (order.delivery.phone)        add(text(`  Telefono : ${order.delivery.phone}`));
+    if (order.delivery.address)      add(text(`  Direccion: ${order.delivery.address}`));
+  }
+
   add(line());
 
   add(CMD.BOLD_ON);
@@ -207,6 +226,7 @@ router.post("/", authMiddleware, (req, res) => {
       EFECTIVO:      "Efectivo",
       TRANSFERENCIA: "Transferencia",
       TARJETA:       "Tarjeta",
+      MIXTO:         "Mixto",
     };
     add(CMD.ALIGN_LEFT);
     add(text(`Pago con  : ${METHOD_LABELS[order.payment.method] || order.payment.method}`));
@@ -215,6 +235,13 @@ router.post("/", authMiddleware, (req, res) => {
       add(text(`Recibido  : $${order.payment.cashGiven.toLocaleString("es-CO")}`));
       add(text(`Cambio    : $${order.payment.change.toLocaleString("es-CO")}`));
     }
+
+    if (order.payment.method === "MIXTO") {
+      if (order.payment.cashGiven)  add(text(`Efectivo  : $${order.payment.cashGiven.toLocaleString("es-CO")}`));
+      if (order.payment.transfer)   add(text(`Transfer. : $${order.payment.transfer.toLocaleString("es-CO")}`));
+      if (order.payment.change > 0) add(text(`Cambio    : $${order.payment.change.toLocaleString("es-CO")}`));
+    }
+
     add(line());
   }
 
@@ -228,7 +255,7 @@ router.post("/", authMiddleware, (req, res) => {
   add(CMD.ALIGN_CENTER);
   add(CMD.LF);
   add(text("Gracias por su visita"));
-  add(text("¡Lo esperamos de vuelta!"));
+  add(text("Lo esperamos de vuelta!"));
   add(CMD.LF);
   add(text("Baussa - 2026"));
   add(CMD.LF);
@@ -248,6 +275,8 @@ router.post("/kitchen", authMiddleware, (req, res) => {
     hour: "2-digit", minute: "2-digit", hour12: true,
   });
 
+  const isDelivery = order.orderType === "DOMICILIO";
+
   const chunks = [];
   const add = (...buffers) => buffers.forEach((b) => chunks.push(b));
 
@@ -258,15 +287,12 @@ router.post("/kitchen", authMiddleware, (req, res) => {
   add(CMD.LF);
   add(CMD.LF);
   add(CMD.LF);
-  add(text("*** COCINA ***"));
-  add(CMD.DOUBLE_OFF);
-  add(CMD.BOLD_OFF);
-  add(line("="));
-  add(CMD.LF);
 
-  add(CMD.BOLD_ON);
-  add(CMD.DOUBLE_ON);
-  add(text(order.tableNumber ? `MESA ${order.tableNumber}` : "PARA LLEVAR"));
+  // Tipo de pedido en grande
+  if (isDelivery)                      add(text("** DOMICILIO **"));
+  else if (order.orderType === "MESA") add(text(`MESA ${order.tableNumber || "?"}`));
+  else                                 add(text("PARA LLEVAR"));
+
   add(CMD.DOUBLE_OFF);
   add(CMD.BOLD_OFF);
   add(line("="));
@@ -303,13 +329,23 @@ router.post("/kitchen", authMiddleware, (req, res) => {
     add(CMD.DOUBLE_OFF);
     add(line());
     add(CMD.LF);
-    add(CMD.LF);
-    add(CMD.LF);
+  }
+
+  // ── Datos domicilio en cocina ──
+  if (isDelivery && order.delivery) {
+    add(CMD.BOLD_ON);
+    add(CMD.ALIGN_CENTER);
+    add(text("ENTREGAR A:"));
+    add(CMD.BOLD_OFF);
+    add(CMD.ALIGN_LEFT);
+    add(line("."));
+    if (order.delivery.customerName) add(text(`  ${order.delivery.customerName}`));
+    if (order.delivery.phone)        add(text(`  Tel: ${order.delivery.phone}`));
+    if (order.delivery.address)      add(text(`  Dir: ${order.delivery.address}`));
+    add(line("."));
     add(CMD.LF);
   }
 
-  add(CMD.LF);
-  add(CMD.LF);
   add(CMD.LF);
   add(CMD.LF);
   add(CMD.LF);
